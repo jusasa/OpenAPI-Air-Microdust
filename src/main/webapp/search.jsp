@@ -72,21 +72,58 @@
             // }
         %>
         <h1> 검색 결과 </h1>
-        <table border="1">
+
+        지역 선택:
+        <select id="stationSelect" onchange="filterStation()">
+            <option value="all">전체</option>
+            <%
+                if (dustList != null) {
+                    Set<String> addedStations = new LinkedHashSet<>();
+                    for (DustVO vo : dustList) {
+                        String name = vo.getStationName();
+                        if (name != null && !name.isEmpty() && addedStations.add(name)) {
+            %>
+            <option value="<%= name %>"><%= name %></option>
+            <%
+                        }
+                    }
+                }
+            %>
+        </select>
+        <br><br>
+
+        <table border="1" id="dustTable">
         <tr><th>지역명</th><th>pm10 값</th><th>pm10 등급</th><th>pm25 값</th><th>pm 25 등급</th></tr>
         <%
             if (dustList != null) {
                 for (DustVO vo : dustList) {
-                    out.println("<tr>");
-                    out.println("<td>" + vo.getStationName() + "</td>");
-                    out.println("<td>" + vo.getPm10Value() + "</td>");
-                    out.println("<td>" + vo.getPm10Grade() + "</td>");
-                    out.println("<td>" + vo.getPm25Value() + "</td>");
-                    out.println("<td>" + vo.getPm25Grade() + "</td>");
-                    out.println("</tr>");
+        %>
+        <tr class="data-row" data-station="<%= vo.getStationName() %>">
+            <td><%= vo.getStationName() %></td>
+            <td><%= vo.getPm10Value() %></td>
+            <td><%= vo.getPm10Grade() %></td>
+            <td><%= vo.getPm25Value() %></td>
+            <td><%= vo.getPm25Grade() %></td>
+        </tr>
+        <%
                 }
             }
         %>
         </table>
+
+        <script>
+        function filterStation() {
+            var selected = document.getElementById("stationSelect").value;
+            var rows = document.getElementsByClassName("data-row");
+            for (var i = 0; i < rows.length; i++) {
+                var station = rows[i].getAttribute("data-station");
+                if (selected === "all" || station === selected) {
+                    rows[i].style.display = "";
+                } else {
+                    rows[i].style.display = "none";
+                }
+            }
+        }
+        </script>
     </body>
 </html>
