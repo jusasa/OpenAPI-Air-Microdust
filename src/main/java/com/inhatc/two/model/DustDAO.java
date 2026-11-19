@@ -72,7 +72,10 @@ public class DustDAO {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return list;
+        // 사전순 정렬
+        return list.stream()
+            .sorted((vo1, vo2) -> (vo1.getStationName().compareTo(vo2.getStationName())))
+            .toList();
     }
 
     private String getSafeString(JsonObject obj, String key, String defaultValue) {

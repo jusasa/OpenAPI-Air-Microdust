@@ -36,3 +36,9 @@ replay_pid*
 # OS generated files
 .DS_Store
 Thumbs.db
+
+pom.xml
+
+target/
+
+test/
