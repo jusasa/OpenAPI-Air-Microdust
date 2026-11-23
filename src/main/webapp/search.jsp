@@ -359,6 +359,26 @@
         .show-weather .weather-col {
             display: table-cell;
         }
+
+        .error-banner {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 14px;
+            padding: 16px 20px;
+            margin-bottom: 20px;
+            color: #991b1b;
+            font-size: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .error-banner-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            line-height: 1.4;
+        }
     </style>
 </head>
 <body>
@@ -372,6 +392,23 @@
         </div>
         <a href="index.jsp" class="btn-back">🔍 다른 지역 검색</a>
     </header>
+
+    <c:if test="${not empty dustError or not empty weatherError}">
+        <div class="error-banner">
+            <c:if test="${not empty dustError}">
+                <div class="error-banner-item">
+                    <span>⚠️</span>
+                    <div><strong>미세먼지 정보 수신 실패:</strong> <c:out value="${dustError}"/></div>
+                </div>
+            </c:if>
+            <c:if test="${not empty weatherError}">
+                <div class="error-banner-item">
+                    <span>⚠️</span>
+                    <div><strong>날씨 예보 수신 실패:</strong> <c:out value="${weatherError}"/></div>
+                </div>
+            </c:if>
+        </div>
+    </c:if>
 
     <!-- 상단 시간대별 날씨 예보 슬라이더 -->
     <c:if test="${not empty weatherList}">
@@ -390,6 +427,18 @@
                         <div class="w-temp">${w.temp}℃</div>
                     </div>
                 </c:forEach>
+            </div>
+        </section>
+    </c:if>
+    <c:if test="${empty weatherList and not empty weatherError}">
+        <section class="section-card">
+            <div class="section-header">
+                <div class="section-title">
+                    <span>⏱️ ${sidoName} 시간대별 날씨 예보</span>
+                </div>
+            </div>
+            <div style="text-align: center; padding: 24px; color: #dc2626; font-size: 14px;">
+                날씨 예보 데이터를 불러오지 못했습니다. (<c:out value="${weatherError}"/>)
             </div>
         </section>
     </c:if>
@@ -445,6 +494,13 @@
                 </thead>
                 <tbody>
                     <c:choose>
+                        <c:when test="${not empty dustError}">
+                            <tr>
+                                <td colspan="5" style="text-align: center; padding: 40px; color: #dc2626; font-size: 14px; font-weight: 500;">
+                                    ⚠️ 미세먼지 데이터를 가져오지 못했습니다. (<c:out value="${dustError}"/>)
+                                </td>
+                            </tr>
+                        </c:when>
                         <c:when test="${empty dustList}">
                             <tr>
                                 <td colspan="5" style="text-align: center; padding: 40px; color: #94a3b8;">

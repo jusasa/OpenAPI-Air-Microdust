@@ -1,9 +1,12 @@
 package com.inhatc.two.model;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.net.http.HttpConnectTimeoutException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -52,14 +55,14 @@ public class WeatherDAO {
 
             String apiWeather = "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?";
             StringBuilder sb = new StringBuilder(apiWeather);
-            sb.append("serviceKey=").append(serviceKey != null ? serviceKey : "").append("&");
-            sb.append("pageNo=").append(pageNo != null ? pageNo : "1").append("&");
-            sb.append("numOfRows=").append(numOfRows != null ? numOfRows : "1000").append("&");
+            sb.append("serviceKey=").append(serviceKey != null ? serviceKey.trim() : "").append("&");
+            sb.append("pageNo=").append(pageNo != null ? pageNo.trim() : "1").append("&");
+            sb.append("numOfRows=").append(numOfRows != null ? numOfRows.trim() : "1000").append("&");
             sb.append("dataType=").append("JSON").append("&");
-            sb.append("base_date=").append(baseDate).append("&");
-            sb.append("base_time=").append(baseTime).append("&");
-            sb.append("nx=").append(nx != null ? nx : "60").append("&");
-            sb.append("ny=").append(ny != null ? ny : "127");
+            sb.append("base_date=").append(baseDate.trim()).append("&");
+            sb.append("base_time=").append(baseTime.trim()).append("&");
+            sb.append("nx=").append(nx != null ? nx.trim() : "60").append("&");
+            sb.append("ny=").append(ny != null ? ny.trim() : "127");
 
             HttpRequest apiRequest = HttpRequest.newBuilder()
                     .uri(URI.create(sb.toString()))
@@ -68,48 +71,59 @@ public class WeatherDAO {
                     .build();
 
             HttpResponse<String> apiResponse = client.send(apiRequest, HttpResponse.BodyHandlers.ofString());
+            ApiErrorHandler.validateResponse(apiResponse);
+
             String jsonText = apiResponse.body();
+            JsonObject root = JsonParser.parseString(jsonText).getAsJsonObject();
 
-            if (jsonText != null && !jsonText.trim().isEmpty() && jsonText.trim().startsWith("{")) {
-                JsonObject root = JsonParser.parseString(jsonText).getAsJsonObject();
-                if (root != null && root.has("response") && !root.get("response").isJsonNull()) {
-                    JsonObject responseObj = root.getAsJsonObject("response");
-                    if (responseObj.has("body") && !responseObj.get("body").isJsonNull()) {
-                        JsonObject bodyObj = responseObj.getAsJsonObject("body");
-                        if (bodyObj.has("items") && !bodyObj.get("items").isJsonNull()) {
-                            JsonElement itemsElement = bodyObj.get("items");
-                            JsonArray docs = null;
-                            if (itemsElement.isJsonArray()) {
-                                docs = itemsElement.getAsJsonArray();
-                            } else if (itemsElement.isJsonObject() && itemsElement.getAsJsonObject().has("item")) {
-                                JsonElement itemElement = itemsElement.getAsJsonObject().get("item");
-                                if (itemElement.isJsonArray()) {
-                                    docs = itemElement.getAsJsonArray();
-                                }
+            if (root.has("response")) {
+                JsonObject responseObj = root.getAsJsonObject("response");
+                if (responseObj.has("header")) {
+                    JsonObject header = responseObj.getAsJsonObject("header");
+                    String resultCode = getSafeString(header, "resultCode", "00");
+                    if (!"00".equals(resultCode)) {
+                        String resultMsg = getSafeString(header, "resultMsg", "기상청 API 오류 코드: " + resultCode);
+                        throw new ApiException(resultMsg);
+                    }
+                }
+
+                if (responseObj.has("body") && !responseObj.get("body").isJsonNull()) {
+                    JsonObject bodyObj = responseObj.getAsJsonObject("body");
+                    if (bodyObj.has("items") && !bodyObj.get("items").isJsonNull()) {
+                        JsonElement itemsElement = bodyObj.get("items");
+                        JsonArray docs = null;
+                        if (itemsElement.isJsonArray()) {
+                            docs = itemsElement.getAsJsonArray();
+                        } else if (itemsElement.isJsonObject() && itemsElement.getAsJsonObject().has("item")) {
+                            JsonElement itemElement = itemsElement.getAsJsonObject().get("item");
+                            if (itemElement.isJsonArray()) {
+                                docs = itemElement.getAsJsonArray();
                             }
+                        }
 
-                            if (docs != null) {
-                                Map<String, WeatherVO> map = new LinkedHashMap<>();
-                                for (int i = 0; i < docs.size(); i++) {
-                                    JsonObject d = docs.get(i).getAsJsonObject();
-                                    String category = getSafeString(d, "category", "");
-                                    String fcstDate = getSafeString(d, "fcstDate", "");
-                                    String fcstTime = getSafeString(d, "fcstTime", "");
-                                    String fcstValue = getSafeString(d, "fcstValue", "");
+                        if (docs != null) {
+                            Map<String, WeatherVO> map = new LinkedHashMap<>();
+                            for (int i = 0; i < docs.size(); i++) {
+                                JsonObject d = docs.get(i).getAsJsonObject();
+                                String category = getSafeString(d, "category", "");
+                                String fcstDate = getSafeString(d, "fcstDate", "");
+                                String fcstTime = getSafeString(d, "fcstTime", "");
+                                String fcstValue = getSafeString(d, "fcstValue", "");
 
-                                    String key = fcstDate + "_" + fcstTime;
-                                    WeatherVO vo = map.computeIfAbsent(key, k -> {
-                                        WeatherVO newVo = new WeatherVO();
-                                        newVo.setBaseDate(d.has("baseDate") ? getSafeString(d, "baseDate", "") : "");
-                                        newVo.setBaseTime(d.has("baseTime") ? getSafeString(d, "baseTime", "") : "");
-                                        newVo.setFcstDate(fcstDate);
-                                        newVo.setFcstTime(fcstTime);
-                                        newVo.setNx(nx);
-                                        newVo.setNy(ny);
-                                        return newVo;
-                                    });
+                                String key = fcstDate + "_" + fcstTime;
+                                WeatherVO vo = map.computeIfAbsent(key, k -> {
+                                    WeatherVO newVo = new WeatherVO();
+                                    newVo.setBaseDate(d.has("baseDate") ? getSafeString(d, "baseDate", "") : "");
+                                    newVo.setBaseTime(d.has("baseTime") ? getSafeString(d, "baseTime", "") : "");
+                                    newVo.setFcstDate(fcstDate);
+                                    newVo.setFcstTime(fcstTime);
+                                    newVo.setNx(nx);
+                                    newVo.setNy(ny);
+                                    return newVo;
+                                });
 
-                                    if (null != category) switch (category) {
+                                if (category != null) {
+                                    switch (category) {
                                         case "TMP" -> vo.setTemp(fcstValue);
                                         case "PCP" -> vo.setRainAmount(fcstValue);
                                         case "SKY" -> vo.setSky(fcstValue);
@@ -118,47 +132,71 @@ public class WeatherDAO {
                                         }
                                     }
                                 }
+                            }
 
-                                for (WeatherVO vo : map.values()) {
-                                    String pty = vo.getPty();
-                                    String sky = vo.getSky();
-                                    String desc = "맑음";
+                            for (WeatherVO vo : map.values()) {
+                                String pty = vo.getPty();
+                                String sky = vo.getSky();
+                                String desc = "맑음";
 
-                                    if (null == pty) {
-                                        if (null == sky) {
-                                            desc = "맑음(☀️)";
-                                        } else desc = switch (sky) {
+                                if (pty == null) {
+                                    if (sky == null) {
+                                        desc = "맑음(☀️)";
+                                    } else {
+                                        desc = switch (sky) {
                                             case "3" -> "구름많음(🌥️)";
                                             case "4" -> "흐림(☁️)";
                                             default -> "맑음(☀️)";
                                         };
-                                    } else switch (pty) {
+                                    }
+                                } else {
+                                    switch (pty) {
                                         case "1" -> desc = "비(☔)";
                                         case "2" -> desc = "비/눈(🌨️/🌧️)";
                                         case "3" -> desc = "눈(🌨️)";
                                         case "4" -> desc = "소나기(🌦️)";
                                         default -> {
-                                            if (null == sky) {
+                                            if (sky == null) {
                                                 desc = "맑음";
-                                            } else desc = switch (sky) {
-                                                case "3" -> "구름많음(🌥️)";
-                                                case "4" -> "흐림(☁️)";
-                                                default -> "맑음(☀️)";
-                                            };
+                                            } else {
+                                                desc = switch (sky) {
+                                                    case "3" -> "구름많음(🌥️)";
+                                                    case "4" -> "흐림(☁️)";
+                                                    default -> "맑음(☀️)";
+                                                };
+                                            }
                                         }
                                     }
-                                    vo.setWeatherDesc(desc);
                                 }
-
-                                list.addAll(map.values());
+                                vo.setWeatherDesc(desc);
                             }
+
+                            list.addAll(map.values());
                         }
                     }
                 }
+            } else if (root.has("cmmMsgHeader")) {
+                JsonObject cmm = root.getAsJsonObject("cmmMsgHeader");
+                String msg = getSafeString(cmm, "returnAuthMsg", getSafeString(cmm, "errMsg", "공공데이터 서비스 오류"));
+                throw new ApiException(msg);
             }
+        } catch (ApiException e) {
+            throw e;
+        } catch (HttpConnectTimeoutException e) {
+            throw new ApiException("기상청 API 서버 연결 시간 초과", e);
+        } catch (HttpTimeoutException e) {
+            throw new ApiException("기상청 API 응답 대기 시간 초과", e);
+        } catch (IOException e) {
+            throw new ApiException("기상청 API 통신 오류: " + e.getMessage(), e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ApiException("기상청 API 요청이 중단되었습니다.", e);
+        } catch (IllegalArgumentException e) {
+            throw new ApiException("기상청 API 요청 URL 구성 실패: " + e.getMessage(), e);
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new ApiException("기상청 데이터 처리 실패: " + e.getMessage(), e);
         }
+
         return list;
     }
 
