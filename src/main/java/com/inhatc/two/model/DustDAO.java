@@ -20,6 +20,7 @@ public class DustDAO {
             .connectTimeout(Duration.ofSeconds(10))
             .build();
 
+
     public List<DustVO> getDustList(String serviceKey, String returnType, String sidoName) {
         return getDustList(serviceKey, returnType, "100", "1.0", sidoName);
     }

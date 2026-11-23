@@ -13,6 +13,7 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 @WebServlet({"/search"})
 public class TotalWeatherController extends HttpServlet {
@@ -36,6 +37,12 @@ public class TotalWeatherController extends HttpServlet {
         request.setAttribute("dustList", dustList);
         request.setAttribute("weatherList", weatherList);
         request.setAttribute("sidoName", sidoName);
+
+        // 상세 카드(detail)에서 API를 다시 부르지 않도록 세션에 보관
+        HttpSession session = request.getSession();
+        session.setAttribute("dustList", dustList);
+        session.setAttribute("weatherList", weatherList);
+        session.setAttribute("sidoName", sidoName);
         request.getRequestDispatcher("search.jsp").forward(request, response);
     }
 }

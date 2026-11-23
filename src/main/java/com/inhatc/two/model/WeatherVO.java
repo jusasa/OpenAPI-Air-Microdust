@@ -56,6 +56,19 @@ public class WeatherVO {
         this.fcstTime = fcstTime;
     }
 
+    // "2100" -> "21시" 형태로 변환 (JSP에서 ${w.fcstHour}로 사용)
+    public String getFcstHour() {
+        if (fcstTime == null || fcstTime.length() < 2) {
+            return fcstTime;
+        }
+        return fcstTime.substring(0, 2) + "시";
+    }
+
+    // 강수형태(PTY) 1:비, 2:비/눈, 3:눈, 4:소나기 -> 비 또는 눈이 오는 상태
+    public boolean isRainOrSnow() {
+        return "1".equals(pty) || "2".equals(pty) || "3".equals(pty) || "4".equals(pty);
+    }
+
     public String getTemp() {
         return temp;
     }

@@ -42,6 +42,26 @@ public class DustVO {
         this.pm10Grade = pm10Grade;
     }
 
+    // 등급 코드(1~4)를 글자로 변환 (JSP에서 ${dust.pm10GradeText})
+    public String getPm10GradeText() {
+        return gradeText(pm10Grade);
+    }
+
+    public String getPm25GradeText() {
+        return gradeText(pm25Grade);
+    }
+
+    private String gradeText(String grade) {
+        if (grade == null) return "-";
+        return switch (grade) {
+            case "1" -> "좋음";
+            case "2" -> "보통";
+            case "3" -> "나쁨";
+            case "4" -> "매우나쁨";
+            default -> "-";
+        };
+    }
+
     public String getPm25Value() {
         return pm25Value;
     }
